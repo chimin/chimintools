@@ -20,25 +20,39 @@ const calculateChargeTime = (startTime: string, endTime: string) => {
 };
 
 export default function EVChargeCalc() {
-  const [batterySize, setBatterySize] = useState(0);
-  const [powerVoltage, setPowerVoltage] = useState(240);
+  const [batterySize, setBatterySize] = useState('0');
+  const [powerVoltage, setPowerVoltage] = useState('240');
   const [chargeStartTime, setChargeStartTime] = useState('');
   const [chargeEndTime, setChargeEndTime] = useState('');
-  const [remainingBattery, setRemainingBattery] = useState(0);
-  const [targetBattery, setTargetBattery] = useState(100);
+  const [remainingBattery, setRemainingBattery] = useState('0');
+  const [targetBattery, setTargetBattery] = useState('100');
   const [requiredCurrent, setRequiredCurrent] = useState(0);
+
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setter(e.target.value);
+  };
+
+  const handleInputBlur = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.FocusEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    const numericValue = parseFloat(value);
+    if (isNaN(numericValue)) {
+      setter('0');
+    } else {
+      setter(String(numericValue));
+    }
+  };
 
   useEffect(() => {
     try {
       const savedData = localStorage.getItem('evChargeCalcData');
       if (savedData) {
         const { batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery } = JSON.parse(savedData);
-        setBatterySize(batterySize);
-        setPowerVoltage(powerVoltage);
-        setChargeStartTime(chargeStartTime);
-        setChargeEndTime(chargeEndTime);
-        setRemainingBattery(remainingBattery);
-        setTargetBattery(targetBattery);
+        setBatterySize(String(batterySize || '0'));
+        setPowerVoltage(String(powerVoltage || '240'));
+        setChargeStartTime(chargeStartTime || '');
+        setChargeEndTime(chargeEndTime || '');
+        setRemainingBattery(String(remainingBattery || '0'));
+        setTargetBattery(String(targetBattery || '100'));
       }
     } catch (error) {
       console.error("Failed to parse localStorage data", error);
@@ -53,10 +67,14 @@ export default function EVChargeCalc() {
   useEffect(() => {
     const calculateCurrent = () => {
       const chargeTime = calculateChargeTime(chargeStartTime, chargeEndTime);
-      if (chargeTime > 0 && powerVoltage > 0) {
-        const energyNeeded = (batterySize * (targetBattery - remainingBattery)) / 100;
+      const numPowerVoltage = parseFloat(powerVoltage);
+      if (chargeTime > 0 && numPowerVoltage > 0) {
+        const numBatterySize = parseFloat(batterySize);
+        const numTargetBattery = parseFloat(targetBattery);
+        const numRemainingBattery = parseFloat(remainingBattery);
+        const energyNeeded = (numBatterySize * (numTargetBattery - numRemainingBattery)) / 100;
         const powerNeeded = (energyNeeded / chargeTime) * 1000;
-        const current = powerNeeded / powerVoltage;
+        const current = powerNeeded / numPowerVoltage;
         setRequiredCurrent(current);
       } else {
         setRequiredCurrent(0);
@@ -74,9 +92,11 @@ export default function EVChargeCalc() {
             <label className="text-left">Car Battery Size</label>
             <div className="flex items-center">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={batterySize}
-                onChange={(e) => setBatterySize(Number(e.target.value))}
+                onChange={handleInputChange(setBatterySize)}
+                onBlur={handleInputBlur(setBatterySize)}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">kWh</span>
@@ -86,9 +106,11 @@ export default function EVChargeCalc() {
             <label className="text-left">Power Voltage</label>
             <div className="flex items-center">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={powerVoltage}
-                onChange={(e) => setPowerVoltage(Number(e.target.value))}
+                onChange={handleInputChange(setPowerVoltage)}
+                onBlur={handleInputBlur(setPowerVoltage)}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">V</span>
@@ -120,9 +142,11 @@ export default function EVChargeCalc() {
             <label className="text-left">Remaining Battery Level</label>
             <div className="flex items-center">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={remainingBattery}
-                onChange={(e) => setRemainingBattery(Number(e.target.value))}
+                onChange={handleInputChange(setRemainingBattery)}
+                onBlur={handleInputBlur(setRemainingBattery)}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">%</span>
@@ -132,9 +156,11 @@ export default function EVChargeCalc() {
             <label className="text-left">Target Battery Level</label>
             <div className="flex items-center">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={targetBattery}
-                onChange={(e) => setTargetBattery(Number(e.target.value))}
+                onChange={handleInputChange(setTargetBattery)}
+                onBlur={handleInputBlur(setTargetBattery)}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">%</span>
