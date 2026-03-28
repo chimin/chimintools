@@ -42,6 +42,10 @@ export default function EVChargeCalc() {
     }
   };
 
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
+
   useEffect(() => {
     try {
       const savedData = localStorage.getItem('evChargeCalcData');
@@ -97,6 +101,7 @@ export default function EVChargeCalc() {
                 value={batterySize}
                 onChange={handleInputChange(setBatterySize)}
                 onBlur={handleInputBlur(setBatterySize)}
+                onFocus={handleFocus}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">kWh</span>
@@ -111,6 +116,7 @@ export default function EVChargeCalc() {
                 value={powerVoltage}
                 onChange={handleInputChange(setPowerVoltage)}
                 onBlur={handleInputBlur(setPowerVoltage)}
+                onFocus={handleFocus}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">V</span>
@@ -147,6 +153,7 @@ export default function EVChargeCalc() {
                 value={remainingBattery}
                 onChange={handleInputChange(setRemainingBattery)}
                 onBlur={handleInputBlur(setRemainingBattery)}
+                onFocus={handleFocus}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">%</span>
@@ -161,6 +168,7 @@ export default function EVChargeCalc() {
                 value={targetBattery}
                 onChange={handleInputChange(setTargetBattery)}
                 onBlur={handleInputBlur(setTargetBattery)}
+                onFocus={handleFocus}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">%</span>
