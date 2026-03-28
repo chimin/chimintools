@@ -3,10 +3,27 @@
 
 import { useState, useEffect } from 'react';
 
+const calculateChargeTime = (startTime: string, endTime: string) => {
+  if (!startTime || !endTime) {
+    return 0;
+  }
+  const [startHours, startMinutes] = startTime.split(':').map(Number);
+  const [endHours, endMinutes] = endTime.split(':').map(Number);
+
+  let diff = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+
+  if (diff < 0) {
+    diff += 24 * 60;
+  }
+
+  return diff / 60;
+};
+
 export default function EVChargeCalc() {
   const [batterySize, setBatterySize] = useState(0);
   const [powerVoltage, setPowerVoltage] = useState(240);
-  const [chargeTime, setChargeTime] = useState(0);
+  const [chargeStartTime, setChargeStartTime] = useState('');
+  const [chargeEndTime, setChargeEndTime] = useState('');
   const [remainingBattery, setRemainingBattery] = useState(0);
   const [targetBattery, setTargetBattery] = useState(100);
   const [requiredCurrent, setRequiredCurrent] = useState(0);
@@ -15,10 +32,11 @@ export default function EVChargeCalc() {
     try {
       const savedData = localStorage.getItem('evChargeCalcData');
       if (savedData) {
-        const { batterySize, powerVoltage, chargeTime, remainingBattery, targetBattery } = JSON.parse(savedData);
+        const { batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery } = JSON.parse(savedData);
         setBatterySize(batterySize);
         setPowerVoltage(powerVoltage);
-        setChargeTime(chargeTime);
+        setChargeStartTime(chargeStartTime);
+        setChargeEndTime(chargeEndTime);
         setRemainingBattery(remainingBattery);
         setTargetBattery(targetBattery);
       }
@@ -28,12 +46,13 @@ export default function EVChargeCalc() {
   }, []);
 
   useEffect(() => {
-    const dataToSave = JSON.stringify({ batterySize, powerVoltage, chargeTime, remainingBattery, targetBattery });
+    const dataToSave = JSON.stringify({ batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery });
     localStorage.setItem('evChargeCalcData', dataToSave);
-  }, [batterySize, powerVoltage, chargeTime, remainingBattery, targetBattery]);
+  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery]);
 
   useEffect(() => {
     const calculateCurrent = () => {
+      const chargeTime = calculateChargeTime(chargeStartTime, chargeEndTime);
       if (chargeTime > 0 && powerVoltage > 0) {
         const energyNeeded = (batterySize * (targetBattery - remainingBattery)) / 100;
         const powerNeeded = (energyNeeded / chargeTime) * 1000;
@@ -44,7 +63,7 @@ export default function EVChargeCalc() {
       }
     };
     calculateCurrent();
-  }, [batterySize, powerVoltage, chargeTime, remainingBattery, targetBattery]);
+  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
@@ -76,15 +95,25 @@ export default function EVChargeCalc() {
             </div>
           </div>
           <div className="flex flex-col mb-3">
-            <label className="text-left">Charge Time</label>
+            <label className="text-left">Charge Start Time</label>
             <div className="flex items-center">
               <input
-                type="number"
-                value={chargeTime}
-                onChange={(e) => setChargeTime(Number(e.target.value))}
+                type="time"
+                value={chargeStartTime}
+                onChange={(e) => setChargeStartTime(e.target.value)}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
-              <span className="ml-2">hours</span>
+            </div>
+          </div>
+          <div className="flex flex-col mb-3">
+            <label className="text-left">Charge End Time</label>
+            <div className="flex items-center">
+              <input
+                type="time"
+                value={chargeEndTime}
+                onChange={(e) => setChargeEndTime(e.target.value)}
+                className="border border-gray-300 rounded-md p-2 w-full"
+              />
             </div>
           </div>
           <div className="flex flex-col mb-3">
