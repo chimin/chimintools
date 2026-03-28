@@ -12,6 +12,27 @@ export default function EVChargeCalc() {
   const [requiredCurrent, setRequiredCurrent] = useState(0);
 
   useEffect(() => {
+    try {
+      const savedData = localStorage.getItem('evChargeCalcData');
+      if (savedData) {
+        const { batterySize, powerVoltage, chargeTime, remainingBattery, targetBattery } = JSON.parse(savedData);
+        setBatterySize(batterySize);
+        setPowerVoltage(powerVoltage);
+        setChargeTime(chargeTime);
+        setRemainingBattery(remainingBattery);
+        setTargetBattery(targetBattery);
+      }
+    } catch (error) {
+      console.error("Failed to parse localStorage data", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const dataToSave = JSON.stringify({ batterySize, powerVoltage, chargeTime, remainingBattery, targetBattery });
+    localStorage.setItem('evChargeCalcData', dataToSave);
+  }, [batterySize, powerVoltage, chargeTime, remainingBattery, targetBattery]);
+
+  useEffect(() => {
     const calculateCurrent = () => {
       if (chargeTime > 0 && powerVoltage > 0) {
         const energyNeeded = (batterySize * (targetBattery - remainingBattery)) / 100;
