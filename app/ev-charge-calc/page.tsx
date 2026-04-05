@@ -19,6 +19,14 @@ const calculateChargeTime = (startTime: string, endTime: string) => {
   return diff / 60;
 };
 
+const getCurrentTimeValue = () => {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+
+  return `${hours}:${minutes}`;
+};
+
 export default function EVChargeCalc() {
   const [batterySize, setBatterySize] = useState('0');
   const [powerVoltage, setPowerVoltage] = useState('240');
@@ -131,6 +139,13 @@ export default function EVChargeCalc() {
                 onChange={(e) => setChargeStartTime(e.target.value)}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
+              <button
+                type="button"
+                onClick={() => setChargeStartTime(getCurrentTimeValue())}
+                className="ml-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium"
+              >
+                Now
+              </button>
             </div>
           </div>
           <div className="flex flex-col mb-3">
