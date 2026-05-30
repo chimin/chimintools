@@ -4,78 +4,103 @@
 import { useState, useEffect } from 'react';
 
 const calculateChargeTime = (startTime: string, endTime: string) => {
-  if (!startTime || !endTime) {
-    return 0;
-  }
+  if (!startTime || !endTime) return 0;
   const [startHours, startMinutes] = startTime.split(':').map(Number);
   const [endHours, endMinutes] = endTime.split(':').map(Number);
-
   let diff = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
-
-  if (diff < 0) {
-    diff += 24 * 60;
-  }
-
+  if (diff < 0) diff += 24 * 60;
   return diff / 60;
 };
 
 const getCurrentTimeValue = () => {
   const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
 
-  return `${hours}:${minutes}`;
+type CalcState = {
+  batterySize: string;
+  powerVoltage: string;
+  chargeStartTime: string;
+  chargeEndTime: string;
+  remainingBattery: string;
+  targetBattery: string;
+  chargerCurrentLoss: string;
+  chargerCurrentLossEnabled: boolean;
+  fullChargeBatteryLevel: string;
+  fullChargeExtraTime: string;
+  fullChargeExtraTimeEnabled: boolean;
+};
+
+const defaultState: CalcState = {
+  batterySize: '0',
+  powerVoltage: '230',
+  chargeStartTime: '',
+  chargeEndTime: '',
+  remainingBattery: '0',
+  targetBattery: '100',
+  chargerCurrentLoss: '1',
+  chargerCurrentLossEnabled: true,
+  fullChargeBatteryLevel: '80',
+  fullChargeExtraTime: '1',
+  fullChargeExtraTimeEnabled: true,
+};
+
+const computeRequiredCurrent = (s: CalcState): number => {
+  const chargeTime = calculateChargeTime(s.chargeStartTime, s.chargeEndTime);
+  const numPowerVoltage = parseFloat(s.powerVoltage);
+  const numBatterySize = parseFloat(s.batterySize);
+  const numTargetBattery = parseFloat(s.targetBattery);
+  const numRemainingBattery = parseFloat(s.remainingBattery);
+  const numFullChargeBatteryLevel = parseFloat(s.fullChargeBatteryLevel);
+  const numFullChargeExtraTime = parseFloat(s.fullChargeExtraTime);
+  const numChargerCurrentLoss = parseFloat(s.chargerCurrentLoss);
+
+  let effectiveChargeTime = chargeTime;
+  if (s.fullChargeExtraTimeEnabled && numTargetBattery > numFullChargeBatteryLevel && numFullChargeBatteryLevel > numRemainingBattery) {
+    effectiveChargeTime -= numFullChargeExtraTime * (numTargetBattery - numFullChargeBatteryLevel) / (100 - numFullChargeBatteryLevel);
+  }
+
+  if (effectiveChargeTime <= 0 || numPowerVoltage <= 0) return 0;
+
+  const energyNeeded = (numBatterySize * (numTargetBattery - numRemainingBattery)) / 100;
+  const current = (energyNeeded / effectiveChargeTime * 1000) / numPowerVoltage;
+  return s.chargerCurrentLossEnabled && numChargerCurrentLoss > 0 ? current + numChargerCurrentLoss : current;
 };
 
 export default function EVChargeCalc() {
-  const [batterySize, setBatterySize] = useState('0');
-  const [powerVoltage, setPowerVoltage] = useState('230');
-  const [chargeStartTime, setChargeStartTime] = useState('');
-  const [chargeEndTime, setChargeEndTime] = useState('');
-  const [remainingBattery, setRemainingBattery] = useState('0');
-  const [targetBattery, setTargetBattery] = useState('100');
-  const [chargerCurrentLoss, setChargerCurrentLoss] = useState('1');
-  const [chargerCurrentLossEnabled, setChargerCurrentLossEnabled] = useState(true);
-  const [fullChargeBatteryLevel, setFullChargeBatteryLevel] = useState('80');
-  const [fullChargeExtraTime, setFullChargeExtraTime] = useState('1');
-  const [fullChargeExtraTimeEnabled, setFullChargeExtraTimeEnabled] = useState(true);
-  const [requiredCurrent, setRequiredCurrent] = useState(0);
+  const [state, setState] = useState<CalcState>(defaultState);
   const [showMore, setShowMore] = useState(false);
 
-  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setter(e.target.value);
+  const patch = (updates: Partial<CalcState>) => setState(prev => ({ ...prev, ...updates }));
+
+  const handleInputChange = (key: keyof CalcState) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    patch({ [key]: e.target.value });
+
+  const handleInputBlur = (key: keyof CalcState) => (e: React.FocusEvent<HTMLInputElement>) => {
+    const n = parseFloat(e.target.value);
+    patch({ [key]: isNaN(n) ? '0' : String(n) });
   };
 
-  const handleInputBlur = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.FocusEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) {
-      setter('0');
-    } else {
-      setter(String(numericValue));
-    }
-  };
-
-  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.select();
-  };
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
   useEffect(() => {
     try {
       const savedData = localStorage.getItem('evChargeCalcData');
       if (savedData) {
-        const { batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, chargerCurrentLossEnabled, fullChargeBatteryLevel, fullChargeExtraTime, fullChargeExtraTimeEnabled } = JSON.parse(savedData);
-        setBatterySize(String(batterySize || '0'));
-        setPowerVoltage(String(powerVoltage || '230'));
-        setChargeStartTime(chargeStartTime || '');
-        setChargeEndTime(chargeEndTime || '');
-        setRemainingBattery(String(remainingBattery || '0'));
-        setTargetBattery(String(targetBattery || '100'));
-        setChargerCurrentLoss(String(chargerCurrentLoss || '1'));
-        setChargerCurrentLossEnabled(chargerCurrentLossEnabled ?? true);
-        setFullChargeBatteryLevel(String(fullChargeBatteryLevel || '80'));
-        setFullChargeExtraTime(String(fullChargeExtraTime || '1'));
-        setFullChargeExtraTimeEnabled(fullChargeExtraTimeEnabled ?? true);
+        const p = JSON.parse(savedData);
+        setState({
+          batterySize: String(p.batterySize || defaultState.batterySize),
+          powerVoltage: String(p.powerVoltage || defaultState.powerVoltage),
+          chargeStartTime: p.chargeStartTime || '',
+          chargeEndTime: p.chargeEndTime || '',
+          remainingBattery: String(p.remainingBattery || defaultState.remainingBattery),
+          targetBattery: String(p.targetBattery || defaultState.targetBattery),
+          chargerCurrentLoss: String(p.chargerCurrentLoss || defaultState.chargerCurrentLoss),
+          chargerCurrentLossEnabled: p.chargerCurrentLossEnabled ?? true,
+          fullChargeBatteryLevel: String(p.fullChargeBatteryLevel || defaultState.fullChargeBatteryLevel),
+          fullChargeExtraTime: String(p.fullChargeExtraTime || defaultState.fullChargeExtraTime),
+          fullChargeExtraTimeEnabled: p.fullChargeExtraTimeEnabled ?? true,
+        });
       }
     } catch (error) {
       console.error("Failed to parse localStorage data", error);
@@ -83,41 +108,10 @@ export default function EVChargeCalc() {
   }, []);
 
   useEffect(() => {
-    const dataToSave = JSON.stringify({ batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, chargerCurrentLossEnabled, fullChargeBatteryLevel, fullChargeExtraTime, fullChargeExtraTimeEnabled });
-    localStorage.setItem('evChargeCalcData', dataToSave);
-  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, chargerCurrentLossEnabled, fullChargeBatteryLevel, fullChargeExtraTime, fullChargeExtraTimeEnabled]);
+    localStorage.setItem('evChargeCalcData', JSON.stringify(state));
+  }, [state]);
 
-  useEffect(() => {
-    const calculateCurrent = () => {
-      const chargeTime = calculateChargeTime(chargeStartTime, chargeEndTime);
-      const numPowerVoltage = parseFloat(powerVoltage);
-      const numBatterySize = parseFloat(batterySize);
-      const numTargetBattery = parseFloat(targetBattery);
-      const numRemainingBattery = parseFloat(remainingBattery);
-      const numFullChargeBatteryLevel = parseFloat(fullChargeBatteryLevel);
-      const numFullChargeExtraTime = parseFloat(fullChargeExtraTime);
-      const numChargerCurrentLoss = parseFloat(chargerCurrentLoss);
-
-      let effectiveChargeTime = chargeTime;
-      if (fullChargeExtraTimeEnabled && numTargetBattery > numFullChargeBatteryLevel && numFullChargeBatteryLevel > numRemainingBattery) {
-        const effectiveExtraTime = numFullChargeExtraTime * (numTargetBattery - numFullChargeBatteryLevel) / (100 - numFullChargeBatteryLevel);
-        effectiveChargeTime -= effectiveExtraTime;
-      }
-
-      if (effectiveChargeTime > 0 && numPowerVoltage > 0) {
-        const energyNeeded = (numBatterySize * (numTargetBattery - numRemainingBattery)) / 100;
-        const powerNeeded = (energyNeeded / effectiveChargeTime) * 1000;
-        let current = powerNeeded / numPowerVoltage;
-        if (chargerCurrentLossEnabled && numChargerCurrentLoss > 0) {
-          current = current + numChargerCurrentLoss;
-        }
-        setRequiredCurrent(current);
-      } else {
-        setRequiredCurrent(0);
-      }
-    };
-    calculateCurrent();
-  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, chargerCurrentLossEnabled, fullChargeBatteryLevel, fullChargeExtraTime, fullChargeExtraTimeEnabled]);
+  const requiredCurrent = computeRequiredCurrent(state);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
@@ -130,9 +124,9 @@ export default function EVChargeCalc() {
               <input
                 type="text"
                 inputMode="decimal"
-                value={batterySize}
-                onChange={handleInputChange(setBatterySize)}
-                onBlur={handleInputBlur(setBatterySize)}
+                value={state.batterySize}
+                onChange={handleInputChange('batterySize')}
+                onBlur={handleInputBlur('batterySize')}
                 onFocus={handleFocus}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
@@ -144,13 +138,13 @@ export default function EVChargeCalc() {
             <div className="flex items-center">
               <input
                 type="time"
-                value={chargeStartTime}
-                onChange={(e) => setChargeStartTime(e.target.value)}
+                value={state.chargeStartTime}
+                onChange={(e) => patch({ chargeStartTime: e.target.value })}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <button
                 type="button"
-                onClick={() => setChargeStartTime(getCurrentTimeValue())}
+                onClick={() => patch({ chargeStartTime: getCurrentTimeValue() })}
                 className="ml-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium"
               >
                 Now
@@ -162,8 +156,8 @@ export default function EVChargeCalc() {
             <div className="flex items-center">
               <input
                 type="time"
-                value={chargeEndTime}
-                onChange={(e) => setChargeEndTime(e.target.value)}
+                value={state.chargeEndTime}
+                onChange={(e) => patch({ chargeEndTime: e.target.value })}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
             </div>
@@ -174,9 +168,9 @@ export default function EVChargeCalc() {
               <input
                 type="text"
                 inputMode="decimal"
-                value={remainingBattery}
-                onChange={handleInputChange(setRemainingBattery)}
-                onBlur={handleInputBlur(setRemainingBattery)}
+                value={state.remainingBattery}
+                onChange={handleInputChange('remainingBattery')}
+                onBlur={handleInputBlur('remainingBattery')}
                 onFocus={handleFocus}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
@@ -189,9 +183,9 @@ export default function EVChargeCalc() {
               <input
                 type="text"
                 inputMode="decimal"
-                value={targetBattery}
-                onChange={handleInputChange(setTargetBattery)}
-                onBlur={handleInputBlur(setTargetBattery)}
+                value={state.targetBattery}
+                onChange={handleInputChange('targetBattery')}
+                onBlur={handleInputBlur('targetBattery')}
                 onFocus={handleFocus}
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
@@ -215,9 +209,9 @@ export default function EVChargeCalc() {
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={powerVoltage}
-                      onChange={handleInputChange(setPowerVoltage)}
-                      onBlur={handleInputBlur(setPowerVoltage)}
+                      value={state.powerVoltage}
+                      onChange={handleInputChange('powerVoltage')}
+                      onBlur={handleInputBlur('powerVoltage')}
                       onFocus={handleFocus}
                       className="border border-gray-300 rounded-md p-2 w-full"
                     />
@@ -228,8 +222,8 @@ export default function EVChargeCalc() {
                   <div className="flex items-center gap-2 text-left">
                     <input
                       type="checkbox"
-                      checked={chargerCurrentLossEnabled}
-                      onChange={(e) => setChargerCurrentLossEnabled(e.target.checked)}
+                      checked={state.chargerCurrentLossEnabled}
+                      onChange={(e) => patch({ chargerCurrentLossEnabled: e.target.checked })}
                     />
                     <label>Charger Loss</label>
                   </div>
@@ -237,11 +231,11 @@ export default function EVChargeCalc() {
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={chargerCurrentLoss}
-                      onChange={handleInputChange(setChargerCurrentLoss)}
-                      onBlur={handleInputBlur(setChargerCurrentLoss)}
+                      value={state.chargerCurrentLoss}
+                      onChange={handleInputChange('chargerCurrentLoss')}
+                      onBlur={handleInputBlur('chargerCurrentLoss')}
                       onFocus={handleFocus}
-                      disabled={!chargerCurrentLossEnabled}
+                      disabled={!state.chargerCurrentLossEnabled}
                       className="border border-gray-300 rounded-md p-2 w-full disabled:opacity-40"
                     />
                     <span className="ml-2">A</span>
@@ -253,9 +247,9 @@ export default function EVChargeCalc() {
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={fullChargeBatteryLevel}
-                      onChange={handleInputChange(setFullChargeBatteryLevel)}
-                      onBlur={handleInputBlur(setFullChargeBatteryLevel)}
+                      value={state.fullChargeBatteryLevel}
+                      onChange={handleInputChange('fullChargeBatteryLevel')}
+                      onBlur={handleInputBlur('fullChargeBatteryLevel')}
                       onFocus={handleFocus}
                       className="border border-gray-300 rounded-md p-2 w-full"
                     />
@@ -266,8 +260,8 @@ export default function EVChargeCalc() {
                   <div className="flex items-center gap-2 text-left">
                     <input
                       type="checkbox"
-                      checked={fullChargeExtraTimeEnabled}
-                      onChange={(e) => setFullChargeExtraTimeEnabled(e.target.checked)}
+                      checked={state.fullChargeExtraTimeEnabled}
+                      onChange={(e) => patch({ fullChargeExtraTimeEnabled: e.target.checked })}
                     />
                     <label>Full Charge Extra Time</label>
                   </div>
@@ -275,11 +269,11 @@ export default function EVChargeCalc() {
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={fullChargeExtraTime}
-                      onChange={handleInputChange(setFullChargeExtraTime)}
-                      onBlur={handleInputBlur(setFullChargeExtraTime)}
+                      value={state.fullChargeExtraTime}
+                      onChange={handleInputChange('fullChargeExtraTime')}
+                      onBlur={handleInputBlur('fullChargeExtraTime')}
                       onFocus={handleFocus}
-                      disabled={!fullChargeExtraTimeEnabled}
+                      disabled={!state.fullChargeExtraTimeEnabled}
                       className="border border-gray-300 rounded-md p-2 w-full disabled:opacity-40"
                     />
                     <span className="ml-2">hrs</span>
