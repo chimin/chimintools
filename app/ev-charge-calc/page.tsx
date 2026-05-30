@@ -29,15 +29,16 @@ const getCurrentTimeValue = () => {
 
 export default function EVChargeCalc() {
   const [batterySize, setBatterySize] = useState('0');
-  const [powerVoltage, setPowerVoltage] = useState('240');
+  const [powerVoltage, setPowerVoltage] = useState('230');
   const [chargeStartTime, setChargeStartTime] = useState('');
   const [chargeEndTime, setChargeEndTime] = useState('');
   const [remainingBattery, setRemainingBattery] = useState('0');
   const [targetBattery, setTargetBattery] = useState('100');
-  const [chargerCurrentLoss, setChargerCurrentLoss] = useState('0');
+  const [chargerCurrentLoss, setChargerCurrentLoss] = useState('1');
   const [fullChargeBatteryLevel, setFullChargeBatteryLevel] = useState('80');
-  const [fullChargeExtraTime, setFullChargeExtraTime] = useState('0');
+  const [fullChargeExtraTime, setFullChargeExtraTime] = useState('1');
   const [requiredCurrent, setRequiredCurrent] = useState(0);
+  const [showMore, setShowMore] = useState(false);
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setter(e.target.value);
@@ -63,14 +64,14 @@ export default function EVChargeCalc() {
       if (savedData) {
         const { batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, fullChargeBatteryLevel, fullChargeExtraTime } = JSON.parse(savedData);
         setBatterySize(String(batterySize || '0'));
-        setPowerVoltage(String(powerVoltage || '240'));
+        setPowerVoltage(String(powerVoltage || '230'));
         setChargeStartTime(chargeStartTime || '');
         setChargeEndTime(chargeEndTime || '');
         setRemainingBattery(String(remainingBattery || '0'));
         setTargetBattery(String(targetBattery || '100'));
-        setChargerCurrentLoss(String(chargerCurrentLoss || '0'));
+        setChargerCurrentLoss(String(chargerCurrentLoss || '1'));
         setFullChargeBatteryLevel(String(fullChargeBatteryLevel || '80'));
-        setFullChargeExtraTime(String(fullChargeExtraTime || '0'));
+        setFullChargeExtraTime(String(fullChargeExtraTime || '1'));
       }
     } catch (error) {
       console.error("Failed to parse localStorage data", error);
@@ -95,7 +96,8 @@ export default function EVChargeCalc() {
 
       let effectiveChargeTime = chargeTime;
       if (numTargetBattery > numFullChargeBatteryLevel && numFullChargeBatteryLevel > numRemainingBattery) {
-        effectiveChargeTime -= numFullChargeExtraTime;
+        const effectiveExtraTime = numFullChargeExtraTime * (numTargetBattery - numFullChargeBatteryLevel) / (100 - numFullChargeBatteryLevel);
+        effectiveChargeTime -= effectiveExtraTime;
       }
 
       if (effectiveChargeTime > 0 && numPowerVoltage > 0) {
@@ -131,21 +133,6 @@ export default function EVChargeCalc() {
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">kWh</span>
-            </div>
-          </div>
-          <div className="flex flex-col mb-3">
-            <label className="text-left">Power Voltage</label>
-            <div className="flex items-center">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={powerVoltage}
-                onChange={handleInputChange(setPowerVoltage)}
-                onBlur={handleInputBlur(setPowerVoltage)}
-                onFocus={handleFocus}
-                className="border border-gray-300 rounded-md p-2 w-full"
-              />
-              <span className="ml-2">V</span>
             </div>
           </div>
           <div className="flex flex-col mb-3">
@@ -207,50 +194,79 @@ export default function EVChargeCalc() {
               <span className="ml-2">%</span>
             </div>
           </div>
-          <div className="flex flex-col mb-3">
-            <label className="text-left">Charger Loss</label>
-            <div className="flex items-center">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={chargerCurrentLoss}
-                onChange={handleInputChange(setChargerCurrentLoss)}
-                onBlur={handleInputBlur(setChargerCurrentLoss)}
-                onFocus={handleFocus}
-                className="border border-gray-300 rounded-md p-2 w-full"
-              />
-              <span className="ml-2">A</span>
-            </div>
-          </div>
-          <div className="flex flex-col mb-3">
-            <label className="text-left">Full Charge Battery Level</label>
-            <div className="flex items-center">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={fullChargeBatteryLevel}
-                onChange={handleInputChange(setFullChargeBatteryLevel)}
-                onBlur={handleInputBlur(setFullChargeBatteryLevel)}
-                onFocus={handleFocus}
-                className="border border-gray-300 rounded-md p-2 w-full"
-              />
-              <span className="ml-2">%</span>
-            </div>
-          </div>
-          <div className="flex flex-col mb-3">
-            <label className="text-left">Full Charge Extra Time</label>
-            <div className="flex items-center">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={fullChargeExtraTime}
-                onChange={handleInputChange(setFullChargeExtraTime)}
-                onBlur={handleInputBlur(setFullChargeExtraTime)}
-                onFocus={handleFocus}
-                className="border border-gray-300 rounded-md p-2 w-full"
-              />
-              <span className="ml-2">hrs</span>
-            </div>
+          <div className="mb-3">
+            <button
+              type="button"
+              onClick={() => setShowMore(!showMore)}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            >
+              <span>{showMore ? '▾' : '▸'}</span>
+              <span>More</span>
+            </button>
+            {showMore && (
+              <div className="mt-3 flex flex-col gap-3">
+                <div className="flex flex-col">
+                  <label className="text-left">Power Voltage</label>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={powerVoltage}
+                      onChange={handleInputChange(setPowerVoltage)}
+                      onBlur={handleInputBlur(setPowerVoltage)}
+                      onFocus={handleFocus}
+                      className="border border-gray-300 rounded-md p-2 w-full"
+                    />
+                    <span className="ml-2">V</span>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-left">Charger Loss</label>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={chargerCurrentLoss}
+                      onChange={handleInputChange(setChargerCurrentLoss)}
+                      onBlur={handleInputBlur(setChargerCurrentLoss)}
+                      onFocus={handleFocus}
+                      className="border border-gray-300 rounded-md p-2 w-full"
+                    />
+                    <span className="ml-2">A</span>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-left">Full Charge Battery Level</label>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={fullChargeBatteryLevel}
+                      onChange={handleInputChange(setFullChargeBatteryLevel)}
+                      onBlur={handleInputBlur(setFullChargeBatteryLevel)}
+                      onFocus={handleFocus}
+                      className="border border-gray-300 rounded-md p-2 w-full"
+                    />
+                    <span className="ml-2">%</span>
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-left">Full Charge Extra Time</label>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={fullChargeExtraTime}
+                      onChange={handleInputChange(setFullChargeExtraTime)}
+                      onBlur={handleInputBlur(setFullChargeExtraTime)}
+                      onFocus={handleFocus}
+                      className="border border-gray-300 rounded-md p-2 w-full"
+                    />
+                    <span className="ml-2">hrs</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           {requiredCurrent > 0 && (
             <div className="mt-5">
