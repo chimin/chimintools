@@ -367,14 +367,14 @@ export default function EVChargeCalc() {
                   <p>= {breakdown.chargeTime.toFixed(2)} hrs</p>
                   {breakdown.effectiveExtraTime > 0 && (
                     <>
-                      <p className="mt-1">− {breakdown.effectiveExtraTime.toFixed(2)} hrs for full charge phase ({state.fullChargeBatteryLevel}% → {state.targetBattery}%)</p>
+                      <p className="mt-1">− {breakdown.effectiveExtraTime.toFixed(2)} hrs for ({state.fullChargeBatteryLevel}% → {state.targetBattery}%)</p>
                       <p>= {breakdown.effectiveChargeTime.toFixed(2)} hrs effective</p>
                     </>
                   )}
                 </div>
                 <div className="flex flex-col gap-0.5 text-gray-600">
                   <p className="font-medium">Energy needed</p>
-                  <p>{state.batterySize} kWh × ({state.targetBattery}% − {state.remainingBattery}%) ÷ 100</p>
+                  <p>{state.batterySize} kWh × ({state.targetBattery}% − {state.remainingBattery}%)</p>
                   <p>= {breakdown.energyNeeded.toFixed(2)} kWh</p>
                 </div>
                 <div className="flex flex-col gap-0.5 text-gray-600">
