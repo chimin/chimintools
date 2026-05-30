@@ -34,6 +34,9 @@ export default function EVChargeCalc() {
   const [chargeEndTime, setChargeEndTime] = useState('');
   const [remainingBattery, setRemainingBattery] = useState('0');
   const [targetBattery, setTargetBattery] = useState('100');
+  const [chargerCurrentLoss, setChargerCurrentLoss] = useState('0');
+  const [fullChargeBatteryLevel, setFullChargeBatteryLevel] = useState('80');
+  const [fullChargeExtraTime, setFullChargeExtraTime] = useState('0');
   const [requiredCurrent, setRequiredCurrent] = useState(0);
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,13 +61,16 @@ export default function EVChargeCalc() {
     try {
       const savedData = localStorage.getItem('evChargeCalcData');
       if (savedData) {
-        const { batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery } = JSON.parse(savedData);
+        const { batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, fullChargeBatteryLevel, fullChargeExtraTime } = JSON.parse(savedData);
         setBatterySize(String(batterySize || '0'));
         setPowerVoltage(String(powerVoltage || '240'));
         setChargeStartTime(chargeStartTime || '');
         setChargeEndTime(chargeEndTime || '');
         setRemainingBattery(String(remainingBattery || '0'));
         setTargetBattery(String(targetBattery || '100'));
+        setChargerCurrentLoss(String(chargerCurrentLoss || '0'));
+        setFullChargeBatteryLevel(String(fullChargeBatteryLevel || '80'));
+        setFullChargeExtraTime(String(fullChargeExtraTime || '0'));
       }
     } catch (error) {
       console.error("Failed to parse localStorage data", error);
@@ -72,28 +78,40 @@ export default function EVChargeCalc() {
   }, []);
 
   useEffect(() => {
-    const dataToSave = JSON.stringify({ batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery });
+    const dataToSave = JSON.stringify({ batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, fullChargeBatteryLevel, fullChargeExtraTime });
     localStorage.setItem('evChargeCalcData', dataToSave);
-  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery]);
+  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, fullChargeBatteryLevel, fullChargeExtraTime]);
 
   useEffect(() => {
     const calculateCurrent = () => {
       const chargeTime = calculateChargeTime(chargeStartTime, chargeEndTime);
       const numPowerVoltage = parseFloat(powerVoltage);
-      if (chargeTime > 0 && numPowerVoltage > 0) {
-        const numBatterySize = parseFloat(batterySize);
-        const numTargetBattery = parseFloat(targetBattery);
-        const numRemainingBattery = parseFloat(remainingBattery);
+      const numBatterySize = parseFloat(batterySize);
+      const numTargetBattery = parseFloat(targetBattery);
+      const numRemainingBattery = parseFloat(remainingBattery);
+      const numFullChargeBatteryLevel = parseFloat(fullChargeBatteryLevel);
+      const numFullChargeExtraTime = parseFloat(fullChargeExtraTime);
+      const numChargerCurrentLoss = parseFloat(chargerCurrentLoss);
+
+      let effectiveChargeTime = chargeTime;
+      if (numTargetBattery > numFullChargeBatteryLevel && numFullChargeBatteryLevel > numRemainingBattery) {
+        effectiveChargeTime -= numFullChargeExtraTime;
+      }
+
+      if (effectiveChargeTime > 0 && numPowerVoltage > 0) {
         const energyNeeded = (numBatterySize * (numTargetBattery - numRemainingBattery)) / 100;
-        const powerNeeded = (energyNeeded / chargeTime) * 1000;
-        const current = powerNeeded / numPowerVoltage;
+        const powerNeeded = (energyNeeded / effectiveChargeTime) * 1000;
+        let current = powerNeeded / numPowerVoltage;
+        if (numChargerCurrentLoss > 0) {
+          current = current + numChargerCurrentLoss;
+        }
         setRequiredCurrent(current);
       } else {
         setRequiredCurrent(0);
       }
     };
     calculateCurrent();
-  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery]);
+  }, [batterySize, powerVoltage, chargeStartTime, chargeEndTime, remainingBattery, targetBattery, chargerCurrentLoss, fullChargeBatteryLevel, fullChargeExtraTime]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
@@ -187,6 +205,51 @@ export default function EVChargeCalc() {
                 className="border border-gray-300 rounded-md p-2 w-full"
               />
               <span className="ml-2">%</span>
+            </div>
+          </div>
+          <div className="flex flex-col mb-3">
+            <label className="text-left">Charger Loss</label>
+            <div className="flex items-center">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={chargerCurrentLoss}
+                onChange={handleInputChange(setChargerCurrentLoss)}
+                onBlur={handleInputBlur(setChargerCurrentLoss)}
+                onFocus={handleFocus}
+                className="border border-gray-300 rounded-md p-2 w-full"
+              />
+              <span className="ml-2">A</span>
+            </div>
+          </div>
+          <div className="flex flex-col mb-3">
+            <label className="text-left">Full Charge Battery Level</label>
+            <div className="flex items-center">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={fullChargeBatteryLevel}
+                onChange={handleInputChange(setFullChargeBatteryLevel)}
+                onBlur={handleInputBlur(setFullChargeBatteryLevel)}
+                onFocus={handleFocus}
+                className="border border-gray-300 rounded-md p-2 w-full"
+              />
+              <span className="ml-2">%</span>
+            </div>
+          </div>
+          <div className="flex flex-col mb-3">
+            <label className="text-left">Full Charge Extra Time</label>
+            <div className="flex items-center">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={fullChargeExtraTime}
+                onChange={handleInputChange(setFullChargeExtraTime)}
+                onBlur={handleInputBlur(setFullChargeExtraTime)}
+                onFocus={handleFocus}
+                className="border border-gray-300 rounded-md p-2 w-full"
+              />
+              <span className="ml-2">hrs</span>
             </div>
           </div>
           {requiredCurrent > 0 && (
