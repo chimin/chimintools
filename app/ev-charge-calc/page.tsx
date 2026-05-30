@@ -359,60 +359,47 @@ export default function EVChargeCalc() {
               <h2 className="text-2xl font-bold">
                 Required Charger Current: {breakdown.requiredCurrent.toFixed(2)} A
               </h2>
-              <div className="text-left text-sm border border-gray-200 rounded-md p-4 bg-gray-50 flex flex-col gap-2">
+              <div className="text-left text-sm border border-gray-200 rounded-md p-4 bg-gray-50 flex flex-col gap-3">
                 <p className="font-semibold text-gray-700">How it&apos;s calculated</p>
-                <div className="flex flex-col gap-1 text-gray-600">
-                  <p>
-                    <span className="font-medium">Charge window: </span>
-                    {state.chargeStartTime} → {state.chargeEndTime} = {breakdown.chargeTime.toFixed(2)} hrs
-                  </p>
+                <div className="flex flex-col gap-0.5 text-gray-600">
+                  <p className="font-medium">Charge window</p>
+                  <p>{state.chargeStartTime} → {state.chargeEndTime}</p>
+                  <p>= {breakdown.chargeTime.toFixed(2)} hrs</p>
                   {breakdown.effectiveExtraTime > 0 && (
-                    <p className="pl-4">
-                      − {breakdown.effectiveExtraTime.toFixed(2)} hrs for full charge phase
-                      ({state.fullChargeBatteryLevel}% → {state.targetBattery}%)
-                      <br />
-                      <span className="font-medium">Effective charge time: </span>
-                      {breakdown.effectiveChargeTime.toFixed(2)} hrs
-                    </p>
+                    <>
+                      <p className="mt-1">− {breakdown.effectiveExtraTime.toFixed(2)} hrs for full charge phase ({state.fullChargeBatteryLevel}% → {state.targetBattery}%)</p>
+                      <p>= {breakdown.effectiveChargeTime.toFixed(2)} hrs effective</p>
+                    </>
                   )}
                 </div>
-                <div className="text-gray-600">
-                  <p>
-                    <span className="font-medium">Energy needed: </span>
-                    {state.batterySize} kWh × ({state.targetBattery}% − {state.remainingBattery}%) ÷ 100
-                    = {breakdown.energyNeeded.toFixed(2)} kWh
-                  </p>
+                <div className="flex flex-col gap-0.5 text-gray-600">
+                  <p className="font-medium">Energy needed</p>
+                  <p>{state.batterySize} kWh × ({state.targetBattery}% − {state.remainingBattery}%) ÷ 100</p>
+                  <p>= {breakdown.energyNeeded.toFixed(2)} kWh</p>
                 </div>
-                <div className="text-gray-600">
-                  <p>
-                    <span className="font-medium">Battery percentage gain: </span>
-                    ({state.targetBattery}% − {state.remainingBattery}%) ÷ {breakdown.effectiveChargeTime.toFixed(2)} hrs
-                    = {breakdown.percentGainPerHour.toFixed(2)}% / hr
-                  </p>
+                <div className="flex flex-col gap-0.5 text-gray-600">
+                  <p className="font-medium">Battery percentage gain</p>
+                  <p>({state.targetBattery}% − {state.remainingBattery}%) ÷ {breakdown.effectiveChargeTime.toFixed(2)} hrs</p>
+                  <p>= {breakdown.percentGainPerHour.toFixed(2)}% / hr</p>
                 </div>
-                <div className="text-gray-600">
-                  <p>
-                    <span className="font-medium">Charge power: </span>
-                    {breakdown.energyNeeded.toFixed(2)} kWh ÷ {breakdown.effectiveChargeTime.toFixed(2)} hrs
-                    = {(breakdown.powerNeeded / 1000).toFixed(2)} kW
-                  </p>
+                <div className="flex flex-col gap-0.5 text-gray-600">
+                  <p className="font-medium">Charge power</p>
+                  <p>{breakdown.energyNeeded.toFixed(2)} kWh ÷ {breakdown.effectiveChargeTime.toFixed(2)} hrs</p>
+                  <p>= {(breakdown.powerNeeded / 1000).toFixed(2)} kW</p>
                 </div>
-                <div className="text-gray-600">
-                  <p>
-                    <span className="font-medium">Base current: </span>
-                    {(breakdown.powerNeeded / 1000).toFixed(2)} kW × 1000 ÷ {state.powerVoltage} V
-                    = {breakdown.baseCurrent.toFixed(2)} A
-                  </p>
+                <div className="flex flex-col gap-0.5 text-gray-600">
+                  <p className="font-medium">Required charger current</p>
+                  <p>{(breakdown.powerNeeded / 1000).toFixed(2)} kW × 1000 ÷ {state.powerVoltage} V</p>
+                  {breakdown.lossApplied > 0 ? (
+                    <>
+                      <p>= {breakdown.baseCurrent.toFixed(2)} A</p>
+                      <p className="mt-1">+ {breakdown.lossApplied.toFixed(2)} A due to charger loss</p>
+                      <p>= {breakdown.requiredCurrent.toFixed(2)} A</p>
+                    </>
+                  ) : (
+                    <p>= {breakdown.requiredCurrent.toFixed(2)} A</p>
+                  )}
                 </div>
-                {breakdown.lossApplied > 0 && (
-                  <div className="text-gray-600">
-                    <p>
-                      <span className="font-medium">Charger loss: </span>
-                      {breakdown.baseCurrent.toFixed(2)} A + {breakdown.lossApplied.toFixed(2)} A
-                      = {breakdown.requiredCurrent.toFixed(2)} A
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
