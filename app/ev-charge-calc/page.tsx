@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const calculateChargeTime = (startTime: string, endTime: string) => {
   if (!startTime || !endTime) return 0;
@@ -85,18 +85,47 @@ const computeBreakdown = (s: CalcState): Breakdown | null => {
   return { chargeTime, effectiveExtraTime, effectiveChargeTime, energyNeeded, powerNeeded, baseCurrent, lossApplied, requiredCurrent: baseCurrent + lossApplied, percentGainPerHour };
 };
 
+const TOOLTIP_EVENT = 'tooltip:open';
+
 function Tooltip({ text }: { text: string }) {
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
   const visible = hovered || pinned;
+  const idRef = useRef(Symbol());
+  const containerRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const onOtherOpen = (e: Event) => {
+      if ((e as CustomEvent).detail !== idRef.current) {
+        setHovered(false);
+        setPinned(false);
+      }
+    };
+    window.addEventListener(TOOLTIP_EVENT, onOtherOpen);
+    return () => window.removeEventListener(TOOLTIP_EVENT, onOtherOpen);
+  }, []);
+
+  useEffect(() => {
+    if (!pinned) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setPinned(false);
+      }
+    };
+    document.addEventListener('click', onDocClick, true);
+    return () => document.removeEventListener('click', onDocClick, true);
+  }, [pinned]);
+
+  const broadcast = () =>
+    window.dispatchEvent(new CustomEvent(TOOLTIP_EVENT, { detail: idRef.current }));
 
   return (
-    <span className="relative inline-flex items-center ml-1">
+    <span ref={containerRef} className="relative inline-flex items-center ml-1">
       <button
         type="button"
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => { broadcast(); setHovered(true); }}
         onMouseLeave={() => setHovered(false)}
-        onClick={() => setPinned(v => !v)}
+        onClick={() => { if (pinned) { setPinned(false); } else { broadcast(); setPinned(true); } }}
         className="w-4 h-4 rounded-full border border-gray-400 text-gray-400 hover:text-gray-600 hover:border-gray-600 inline-flex items-center justify-center text-xs leading-none select-none"
         aria-label="More information"
       >
