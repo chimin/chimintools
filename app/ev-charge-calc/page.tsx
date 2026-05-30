@@ -45,7 +45,19 @@ const defaultState: CalcState = {
   fullChargeExtraTimeEnabled: true,
 };
 
-const computeRequiredCurrent = (s: CalcState): number => {
+type Breakdown = {
+  chargeTime: number;
+  effectiveExtraTime: number;
+  effectiveChargeTime: number;
+  energyNeeded: number;
+  powerNeeded: number;
+  baseCurrent: number;
+  lossApplied: number;
+  requiredCurrent: number;
+  percentGainPerHour: number;
+};
+
+const computeBreakdown = (s: CalcState): Breakdown | null => {
   const chargeTime = calculateChargeTime(s.chargeStartTime, s.chargeEndTime);
   const numPowerVoltage = parseFloat(s.powerVoltage);
   const numBatterySize = parseFloat(s.batterySize);
@@ -55,16 +67,22 @@ const computeRequiredCurrent = (s: CalcState): number => {
   const numFullChargeExtraTime = parseFloat(s.fullChargeExtraTime);
   const numChargerCurrentLoss = parseFloat(s.chargerCurrentLoss);
 
-  let effectiveChargeTime = chargeTime;
+  let effectiveExtraTime = 0;
   if (s.fullChargeExtraTimeEnabled && numTargetBattery > numFullChargeBatteryLevel && numFullChargeBatteryLevel > numRemainingBattery) {
-    effectiveChargeTime -= numFullChargeExtraTime * (numTargetBattery - numFullChargeBatteryLevel) / (100 - numFullChargeBatteryLevel);
+    effectiveExtraTime = numFullChargeExtraTime * (numTargetBattery - numFullChargeBatteryLevel) / (100 - numFullChargeBatteryLevel);
   }
 
-  if (effectiveChargeTime <= 0 || numPowerVoltage <= 0) return 0;
+  const effectiveChargeTime = chargeTime - effectiveExtraTime;
+  if (effectiveChargeTime <= 0 || numPowerVoltage <= 0) return null;
 
   const energyNeeded = (numBatterySize * (numTargetBattery - numRemainingBattery)) / 100;
-  const current = (energyNeeded / effectiveChargeTime * 1000) / numPowerVoltage;
-  return s.chargerCurrentLossEnabled && numChargerCurrentLoss > 0 ? current + numChargerCurrentLoss : current;
+  const powerNeeded = (energyNeeded / effectiveChargeTime) * 1000;
+  const baseCurrent = powerNeeded / numPowerVoltage;
+  const lossApplied = s.chargerCurrentLossEnabled && numChargerCurrentLoss > 0 ? numChargerCurrentLoss : 0;
+
+  const percentGainPerHour = (numTargetBattery - numRemainingBattery) / effectiveChargeTime;
+
+  return { chargeTime, effectiveExtraTime, effectiveChargeTime, energyNeeded, powerNeeded, baseCurrent, lossApplied, requiredCurrent: baseCurrent + lossApplied, percentGainPerHour };
 };
 
 function Tooltip({ text }: { text: string }) {
@@ -137,7 +155,8 @@ export default function EVChargeCalc() {
     localStorage.setItem('evChargeCalcData', JSON.stringify(state));
   }, [state]);
 
-  const requiredCurrent = computeRequiredCurrent(state);
+  const breakdown = computeBreakdown(state);
+  const requiredCurrent = breakdown?.requiredCurrent ?? 0;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
@@ -335,11 +354,66 @@ export default function EVChargeCalc() {
               </div>
             )}
           </div>
-          {requiredCurrent > 0 && (
-            <div className="mt-5">
+          {breakdown && (
+            <div className="mt-5 flex flex-col gap-4">
               <h2 className="text-2xl font-bold">
-                Required Charger Current: {requiredCurrent.toFixed(2)} A
+                Required Charger Current: {breakdown.requiredCurrent.toFixed(2)} A
               </h2>
+              <div className="text-left text-sm border border-gray-200 rounded-md p-4 bg-gray-50 flex flex-col gap-2">
+                <p className="font-semibold text-gray-700">How it&apos;s calculated</p>
+                <div className="flex flex-col gap-1 text-gray-600">
+                  <p>
+                    <span className="font-medium">Charge window: </span>
+                    {state.chargeStartTime} → {state.chargeEndTime} = {breakdown.chargeTime.toFixed(2)} hrs
+                  </p>
+                  {breakdown.effectiveExtraTime > 0 && (
+                    <p className="pl-4">
+                      − {breakdown.effectiveExtraTime.toFixed(2)} hrs for full charge phase
+                      ({state.fullChargeBatteryLevel}% → {state.targetBattery}%)
+                      <br />
+                      <span className="font-medium">Effective charge time: </span>
+                      {breakdown.effectiveChargeTime.toFixed(2)} hrs
+                    </p>
+                  )}
+                </div>
+                <div className="text-gray-600">
+                  <p>
+                    <span className="font-medium">Energy needed: </span>
+                    {state.batterySize} kWh × ({state.targetBattery}% − {state.remainingBattery}%) ÷ 100
+                    = {breakdown.energyNeeded.toFixed(2)} kWh
+                  </p>
+                </div>
+                <div className="text-gray-600">
+                  <p>
+                    <span className="font-medium">Battery percentage gain: </span>
+                    ({state.targetBattery}% − {state.remainingBattery}%) ÷ {breakdown.effectiveChargeTime.toFixed(2)} hrs
+                    = {breakdown.percentGainPerHour.toFixed(2)}% / hr
+                  </p>
+                </div>
+                <div className="text-gray-600">
+                  <p>
+                    <span className="font-medium">Charge power: </span>
+                    {breakdown.energyNeeded.toFixed(2)} kWh ÷ {breakdown.effectiveChargeTime.toFixed(2)} hrs
+                    = {(breakdown.powerNeeded / 1000).toFixed(2)} kW
+                  </p>
+                </div>
+                <div className="text-gray-600">
+                  <p>
+                    <span className="font-medium">Base current: </span>
+                    {(breakdown.powerNeeded / 1000).toFixed(2)} kW × 1000 ÷ {state.powerVoltage} V
+                    = {breakdown.baseCurrent.toFixed(2)} A
+                  </p>
+                </div>
+                {breakdown.lossApplied > 0 && (
+                  <div className="text-gray-600">
+                    <p>
+                      <span className="font-medium">Charger loss: </span>
+                      {breakdown.baseCurrent.toFixed(2)} A + {breakdown.lossApplied.toFixed(2)} A
+                      = {breakdown.requiredCurrent.toFixed(2)} A
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
